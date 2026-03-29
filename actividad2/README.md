@@ -24,7 +24,7 @@ ver_plan.
 Cristian Collins  
 Licenciatura en Gestión de Recursos Tecnológicos
 
-## consultas
+
 ## consultas
 
 CONSULTA | QUE DEMUESTRA
