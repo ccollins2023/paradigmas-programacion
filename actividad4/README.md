@@ -17,7 +17,7 @@ El artículo base aborda conceptos como:
 - implementación sobre hardware Arduino.
 
 ## Archivo incluido
-- `ACTIVIDAD 4.pdf`
+- [Ver Actividad 4 (PDF)](./ACTIVIDAD%204.pdf)
 
 ## Autor
 Cristian Collins
