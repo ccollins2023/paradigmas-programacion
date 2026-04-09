@@ -1,3 +1,3 @@
-# Actividad 3
+## Documento
 
-Trabajo de paradigma concurrente en Go.
+[Ver actividad en PDF](./ACTIVIDAD%203.pdf)
