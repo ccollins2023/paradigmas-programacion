@@ -34,7 +34,6 @@ El artículo base aborda:
 - Implementación embebida en Arduino (Mega y Nano)
 
 ## Archivos incluidos
-- **[Ver la Reflexión completa (PDF)](./actividad4/articulo_para_reflexion_A4.pdf)**
 - Código fuente Experiencia 1 → [`experiencia1.ino`](./codigo-arduino/experiencia1.ino)
 - Código fuente Experiencia 2 → [`experiencia2.ino`](./codigo-arduino/experiencia2.ino)
 
