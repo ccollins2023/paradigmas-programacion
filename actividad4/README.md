@@ -10,12 +10,13 @@ En este trabajo se analizan dos experiencias prácticas:
 Se profundiza en la combinación de **paradigmas declarativo** (lógica difusa Mamdani) e **imperativo** (C++ en Arduino), junto con propuestas de mejora (migración a TSK y mayor modularidad orientada a objetos).
 
 ## Contenido del repositorio
-- `Actividad 4 - Reflexión.pdf` → Versión final entregada de la reflexión.
-- Carpeta `/codigo-arduino/` → Código fuente completo de ambas experiencias.
-- Carpeta `/capturas-ide/` → Imágenes del Arduino IDE mostrando el código generado.
+- [`Reflexión_actividad_4.docx`](./actividad4/Reflexión_actividad_4.docx) → Versión final entregada de la reflexión.
+- [`artículo_para_reflexion_A4.pdf`](./actividad4/artículo_para_reflexion_A4.pdf) → Artículo original de los autores.
+- Carpeta [`/Codigo_Arduino/`](./actividad4/Codigo_Arduino) → Código fuente completo de ambas experiencias.
+- Carpeta [`/Capturas_IDE/`](./actividad4/Capturas_IDE) → Imágenes del Arduino IDE mostrando el código generado.
 
 ## Explicación clave: Método de defuzzificación por centroide
-En ambos prototipos se utiliza el **método del centroide** (también llamado “ponderada al centro”) para obtener el valor numérico de salida. Su fórmula es:
+En ambos prototipos se utiliza el **método del centroide** (también llamado "ponderada al centro") para obtener el valor numérico de salida. Su fórmula es:
 
 \[
 c = \frac{\int_S x \cdot \mu(x) \, dx}{\int_S \mu(x) \, dx}
@@ -24,6 +25,8 @@ c = \frac{\int_S x \cdot \mu(x) \, dx}{\int_S \mu(x) \, dx}
 donde \(\mu(x)\) es la función de pertenencia del conjunto difuso de salida y \(S\) es el rango de integración.
 
 Esta aproximación se implementa en el código generado por MATLAB con una resolución discreta (`FIS_RESOLUTION = 101`).
+
+> *Nota: en el código original del artículo aparece como `FIS_RESOLUSION`, pero se trata de un error de tipeo; la forma correcta en inglés es `FIS_RESOLUTION`.*
 
 ## Nota técnica: Diferencia de costo computacional entre Mamdani y TSK
 
@@ -42,6 +45,7 @@ En cambio, este modelo elimina por completo la etapa de defuzzificación. Cada r
 Esto se traduce en un procesamiento más rápido, mayor frecuencia de muestreo de sensores y menor consumo de recursos del microcontrolador, aspectos críticos en sistemas embebidos de tiempo real.
 
 *Esta nota complementa el análisis realizado en la Sección 2 de la reflexión principal.*
+
 ## Material de referencia
 El artículo base aborda:
 - Inferencia difusa tipo Mamdani
@@ -53,6 +57,16 @@ El artículo base aborda:
 ## Archivos incluidos
 - Código fuente Experiencia 1 → [`experiencia1.ino`](./actividad4/Codigo_Arduino/experiencia1.ino)
 - Código fuente Experiencia 2 → [`experiencia2.ino`](./actividad4/Codigo_Arduino/experiencia2.ino)
+
+## Capturas del IDE
+- Captura Experiencia 1 → [`experiencia1_ide.jpg`](./actividad4/Capturas_IDE/experiencia1_ide.jpg)
+- Captura Experiencia 2 → [`experiencia2_ide.jpg`](./actividad4/Capturas_IDE/experiencia2_ide.jpg)
+
+## Placas utilizadas
+| Experiencia | Placa | Microcontrolador |
+|-------------|-------|------------------|
+| Experiencia 1 | Arduino Mega 2560 R3 | ATmega2560 |
+| Experiencia 2 | Arduino Nano V3.0 | ATmega328P |
 
 ## Autor
 **Cristian Collins**  
