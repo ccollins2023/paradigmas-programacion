@@ -25,7 +25,7 @@ donde \(\mu(x)\) es la función de pertenencia del conjunto difuso de salida y \
 
 Esta aproximación se implementa en el código generado por MATLAB con una resolución discreta (`FIS_RESOLUTION = 101`).
 
-## 🔍 Nota técnica: Diferencia de costo computacional entre Mamdani y TSK
+## Nota técnica: Diferencia de costo computacional entre Mamdani y TSK
 
 Para comprender mejor la diferencia en costo computacional entre ambos métodos de inferencia difusa, es necesario analizar cómo se implementa cada uno sobre el hardware Arduino.
 
