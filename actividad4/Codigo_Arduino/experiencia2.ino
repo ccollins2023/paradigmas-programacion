@@ -1,123 +1,149 @@
-//*******************************************************************
-// Código Fuente Experiencia 1 - Prototipo detección del estado ambiental
-// Lógica Difusa Mamdani - Generado desde MATLAB Fuzzy Logic Designer
-//*******************************************************************
+// Experiencia 2 - Mecanismo de avance autoajustable
+// Código basado en el artículo de Encina et al.
 
-#define FIS_TYPE float
-#define FIS_RESOLUTION 101
-#define FIS_MIN -3.4028235E+38
-#define FIS_MAX 3.4028235E+38
+#include <efll.h>
+#include <StepperMotor.h>
 
-typedef FIS_TYPE(*FIS_MF)(FIS_TYPE, FIS_TYPE*);
-typedef FIS_TYPE(*FIS_ARR_OP)(FIS_TYPE, FIS_TYPE);
-typedef FIS_TYPE(*FIS_ARR)(FIS_TYPE*, int, FIS_ARR_OP);
+// Definición de pines
+const int TriggerPin = 9;
+const int EchoPin = 10;
 
-// Número de entradas, salidas y reglas del controlador difuso
-const int fis_gc1 = 2;   // entradas (temperatura + humedad)
-const int fis_gcO = 1;   // salida (estado del clima)
-const int fis_gcR = 16;  // reglas
+// Motores paso a paso (ejemplo con Adafruit Motor Shield)
+StepperMotor motor1(1);
+StepperMotor motor2(2);
 
-FIS_TYPE g_fisInput[fis_gc1];
-FIS_TYPE g_fisOutput[fis_gcO];
+// Variables
+int cm = 0;
+int cma = 0;
+int vel = 0;
 
-// Variables del sensor
-float temperatura;
-float humedad;
-float salida;
+// Crear sistema difuso
+Fuzzy *difuso = new Fuzzy();
 
-//============================================================
-// LIBRERÍAS
-//============================================================
-#include <dht.h>
-dht DHT;
-#define DHT11_PIN 8
+// Definir conjuntos difusos para DISTANCIA
+FuzzySet *cerca = new FuzzySet(10, 30, 40);
+FuzzySet *distante = new FuzzySet(35, 70, 90);
+FuzzySet *lejos = new FuzzySet(80, 150, 200);
 
-// LED RGB
-int rojo = 3;
-int verde = 4;
-int azul = 5;
+// Definir conjuntos difusos para VELOCIDAD
+FuzzySet *lento = new FuzzySet(0, 10, 20);
+FuzzySet *crucero = new FuzzySet(9, 40, 60);
+FuzzySet *corrida = new FuzzySet(50, 70, 100);
 
-// Bluetooth (opcional)
-#include <SoftwareSerial.h>
-SoftwareSerial BTSerial(2, 3);
+// Definir conjuntos difusos para AVANCE (salida)
+FuzzySet *acercar = new FuzzySet(0, 5, 10);
+FuzzySet *seguir = new FuzzySet(7, 20, 50);
+FuzzySet *atrapar = new FuzzySet(45, 70, 100);
 
-// LCD 1602 I2C
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-String menSalida;
+// Agregar conjuntos al sistema
+difuso->addFuzzySet(distancia, cerca);
+difuso->addFuzzySet(distancia, distante);
+difuso->addFuzzySet(distancia, lejos);
+difuso->addFuzzySet(velocidad, lento);
+difuso->addFuzzySet(velocidad, crucero);
+difuso->addFuzzySet(velocidad, corrida);
+difuso->addFuzzySet(avance, acercar);
+difuso->addFuzzySet(avance, seguir);
+difuso->addFuzzySet(avance, atrapar);
 
-//============================================================
-// SETUP
-//============================================================
+// Reglas del controlador difuso
+FuzzyRuleAntecedent *cercaYLento = new FuzzyRuleAntecedent();
+cercaYLento->joinWithAND(cerca, lento);
+FuzzyRuleConsequent *acercarCons = new FuzzyRuleConsequent();
+acercarCons->addOutput(acercar);
+FuzzyRule *regla1 = new FuzzyRule(1, cercaYLento, acercarCons);
+difuso->addFuzzyRule(regla1);
+
+FuzzyRuleAntecedent *cercaYCrucero = new FuzzyRuleAntecedent();
+cercaYCrucero->joinWithAND(cerca, crucero);
+FuzzyRuleConsequent *seguirCons = new FuzzyRuleConsequent();
+seguirCons->addOutput(seguir);
+FuzzyRule *regla2 = new FuzzyRule(2, cercaYCrucero, seguirCons);
+difuso->addFuzzyRule(regla2);
+
+FuzzyRuleAntecedent *cercaYCorrida = new FuzzyRuleAntecedent();
+cercaYCorrida->joinWithAND(cerca, corrida);
+FuzzyRule *regla3 = new FuzzyRule(3, cercaYCorrida, atraparCons);
+difuso->addFuzzyRule(regla3);
+
+FuzzyRuleAntecedent *distanteYLento = new FuzzyRuleAntecedent();
+distanteYLento->joinWithAND(distante, lento);
+FuzzyRule *regla4 = new FuzzyRule(4, distanteYLento, acercarCons);
+difuso->addFuzzyRule(regla4);
+
+FuzzyRuleAntecedent *distanteYCrucero = new FuzzyRuleAntecedent();
+distanteYCrucero->joinWithAND(distante, crucero);
+FuzzyRule *regla5 = new FuzzyRule(5, distanteYCrucero, seguirCons);
+difuso->addFuzzyRule(regla5);
+
+FuzzyRuleAntecedent *distanteYCorrida = new FuzzyRuleAntecedent();
+distanteYCorrida->joinWithAND(distante, corrida);
+FuzzyRule *regla6 = new FuzzyRule(6, distanteYCorrida, atraparCons);
+difuso->addFuzzyRule(regla6);
+
+FuzzyRuleAntecedent *lejosYLento = new FuzzyRuleAntecedent();
+lejosYLento->joinWithAND(lejos, lento);
+FuzzyRule *regla7 = new FuzzyRule(7, lejosYLento, acercarCons);
+difuso->addFuzzyRule(regla7);
+
+FuzzyRuleAntecedent *lejosYCrucero = new FuzzyRuleAntecedent();
+lejosYCrucero->joinWithAND(lejos, crucero);
+FuzzyRule *regla8 = new FuzzyRule(8, lejosYCrucero, seguirCons);
+difuso->addFuzzyRule(regla8);
+
+FuzzyRuleAntecedent *lejosYCorrida = new FuzzyRuleAntecedent();
+lejosYCorrida->joinWithAND(lejos, corrida);
+FuzzyRule *regla9 = new FuzzyRule(9, lejosYCorrida, seguirCons);
+difuso->addFuzzyRule(regla9);
+
 void setup() {
-  Serial.begin(9600);
-  lcd.init();
-  lcd.backlight();
-  lcd.clear();
+    Serial.begin(9600);
+    pinMode(TriggerPin, OUTPUT);
+    pinMode(EchoPin, INPUT);
+    motor1.setSpeed(70);
+    motor2.setSpeed(70);
 }
 
-//============================================================
-// LOOP
-//============================================================
 void loop() {
-  // Lectura del sensor DHT11
-  DHT.read11(DHT11_PIN);
-  
-  temperatura = DHT.temperature;
-  humedad = DHT.humidity;
-
-  Serial.print("Temperatura = "); Serial.print(temperatura); Serial.println(" C");
-  Serial.print("Humedad = "); Serial.print(humedad); Serial.println(" %");
-  delay(1000);
-
-  // Solo procesamos si los valores están dentro del rango del controlador
-  if (temperatura > 1 && temperatura < 42 && humedad > 1 && humedad < 100) {
+    velocidad();
+    difuso->setInput(1, cm);
+    difuso->setInput(2, vel);
+    difuso->fuzzify();
+    float avanceMotor = difuso->defuzzify(1);
     
-    g_fisInput[0] = temperatura;
-    g_fisInput[1] = humedad;
-    g_fisOutput[0] = 0;
+    Serial.print("Avance: ");
+    Serial.println(avanceMotor);
     
-    fis_evaluate();          // ← Función generada automáticamente por MATLAB
-
-    salida = g_fisOutput[0];
-    Serial.print("Salida: "); Serial.print(salida);
-
-    // Control del LED RGB y LCD según el valor defuzzificado
-    if (salida >= 0 && salida <= 0.4) {
-      if (salida >= 0.3 && salida <= 0.4) {
-        Serial.print(" - CLIMA ENTRE MALO Y NORMAL");
-        menSalida = " CLIMA:MyN";
-        analogWrite(rojo, 255); analogWrite(verde, 255); analogWrite(azul, 0);
-      } else {
-        Serial.print(" - CLIMA MALO");
-        menSalida = " CLIMA:M";
-        analogWrite(rojo, 255); analogWrite(verde, 0); analogWrite(azul, 0);
-      }
-    } 
-    else if (salida > 0.4 && salida < 0.7) {
-      Serial.print(" - CLIMA NORMAL");
-      menSalida = " CLIMA:N";
-      analogWrite(rojo, 0); analogWrite(verde, 255); analogWrite(azul, 0);
-    } 
-    else {
-      Serial.print(" - CLIMA BUENO");
-      menSalida = " CLIMA:B";
-      analogWrite(rojo, 0); analogWrite(verde, 0); analogWrite(azul, 255);
+    int pasos = avanceMotor * 3;
+    Serial.print("Pasos: ");
+    Serial.println(pasos);
+    
+    for (int paso = 0; paso <= pasos; paso++) {
+        motor1.step(1, FORWARD, DOUBLE);
+        motor2.step(1, BACKWARD, DOUBLE);
     }
-    
-    lcd.setCursor(0, 0);
-    lcd.print(menSalida);
-  }
+    delay(100);
 }
 
-//============================================================
-// FUNCIONES GENERADAS POR MATLAB (FIS)
-// (este bloque completo se genera automáticamente al exportar .fis → Arduino)
-//============================================================
+void velocidad() {
+    cm = ping(TriggerPin, EchoPin);
+    vel = (cm - cma);
+    Serial.print("Distancia: ");
+    Serial.print(cm);
+    Serial.print(" Velocidad: ");
+    Serial.println(vel);
+    cma = cm;
+    delay(1000);
+}
 
-// ... (aquí irían las ~300 líneas de fis_MF, fis_evaluate, reglas, funciones de pertenencia, etc.)
-
-// Nota: Si querés el bloque completo de funciones FIS, abrí el archivo .fis en MATLAB 
-// y exportalo nuevamente a Arduino. El código que tenés arriba es la parte "visible" 
-// y funcional del sketch.
+int ping(int TriggerPin, int EchoPin) {
+    long duration, distanceCm;
+    digitalWrite(TriggerPin, LOW);
+    delayMicroseconds(4);
+    digitalWrite(TriggerPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TriggerPin, LOW);
+    duration = pulseIn(EchoPin, HIGH);
+    distanceCm = duration * 10 / 292 / 2;
+    return distanceCm;
+}
