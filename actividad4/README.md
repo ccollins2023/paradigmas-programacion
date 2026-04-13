@@ -18,7 +18,7 @@ Se profundiza en la combinación de **paradigmas declarativo** (lógica difusa M
 En ambos prototipos se utiliza el **método del centroide** (también llamado “ponderada al centro”) para obtener el valor numérico de salida. Su fórmula es:
 
 \[
-C = \frac{\int_S x \cdot \mu(x) \, dx}{\int_S \mu(x) \, dx}
+c = \frac{\int_S x \cdot \mu(x) \, dx}{\int_S \mu(x) \, dx}
 \]
 
 donde \(\mu(x)\) es la función de pertenencia del conjunto difuso de salida y \(S\) es el rango de integración.
