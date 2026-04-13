@@ -51,8 +51,8 @@ El artículo base aborda:
 - Implementación embebida en Arduino (Mega y Nano)
 
 ## Archivos incluidos
-- Código fuente Experiencia 1 → [`experiencia1.ino`](./codigo-arduino/experiencia1.ino)
-- Código fuente Experiencia 2 → [`experiencia2.ino`](./codigo-arduino/experiencia2.ino)
+- Código fuente Experiencia 1 → [`experiencia1.ino`](./actividad4/Codigo_Arduino/experiencia1.ino)
+- Código fuente Experiencia 2 → [`experiencia2.ino`](./actividad4/Codigo_Arduino/experiencia2.ino)
 
 ## Autor
 **Cristian Collins**  
