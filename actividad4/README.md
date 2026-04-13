@@ -58,8 +58,8 @@ El artículo base aborda:
 - Código fuente Experiencia 2 → [`experiencia2.ino`](./actividad4/Codigo_Arduino/experiencia2.ino)
 
 ## Capturas del IDE
-- Captura Experiencia 1 → [`experiencia1_ide.jpg`](./actividad4/Capturas_IDE/experiencia1.jpg)
-- Captura Experiencia 2 → [`experiencia2_ide.jpg`](./actividad4/Capturas_IDE/experiencia2.jpg)
+- Captura Experiencia 1 → [`experiencia1.jpg`](./actividad4/Capturas_IDE/experiencia1_ide.jpg)
+- Captura Experiencia 2 → [`experiencia2.jpg`](./actividad4/Capturas_IDE/experiencia2_ide.jpg)
 
 ## Placas utilizadas
 | Experiencia | Placa | Microcontrolador |
