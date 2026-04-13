@@ -26,7 +26,6 @@ donde \(\mu(x)\) es la función de pertenencia del conjunto difuso de salida y \
 
 Esta aproximación se implementa en el código generado por MATLAB con una resolución discreta (`FIS_RESOLUTION = 101`).
 
-> *Nota: en el código original del artículo aparece como `FIS_RESOLUSION`, pero se trata de un error de tipeo; la forma correcta en inglés es `FIS_RESOLUTION`.*
 
 ## Nota técnica: Diferencia de costo computacional entre Mamdani y TSK
 
