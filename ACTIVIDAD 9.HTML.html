@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MEM://VISUALIZER — Stack & Heap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:         #050810;
+      --bg2:        #080c18;
+      --surface:    #0b1020;
+      --surface2:   #0f1830;
+
+      --cyan:       #00f5ff;
+      --cyan-dim:   rgba(0,245,255,0.15);
+      --cyan-glow:  rgba(0,245,255,0.4);
+      --magenta:    #ff2d9b;
+      --mag-dim:    rgba(255,45,155,0.15);
+      --mag-glow:   rgba(255,45,155,0.4);
+      --yellow:     #ffe600;
+      --yel-dim:    rgba(255,230,0,0.15);
+      --green:      #39ff14;
+      --grn-dim:    rgba(57,255,20,0.12);
+      --orange:     #ff6b00;
+      --white:      #e8eeff;
+      --muted:      rgba(180,200,255,0.35);
+      --border:     rgba(0,245,255,0.12);
+
+      --mono:       'Share Tech Mono', monospace;
+      --display:    'Orbitron', sans-serif;
+      --body:       'Rajdhani', sans-serif;
+      --radius:     4px;
+    }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--white);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+      overflow-x: hidden;
+      /* scanline overlay */
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0,245,255,0.015) 2px,
+          rgba(0,245,255,0.015) 4px
+        ),
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,245,255,0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(255,45,155,0.05) 0%, transparent 60%);
+      background-attachment: fixed;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    .header::before {
+      content: 'PARADIGMAS Y LENGUAJES // UNIDAD III // UGD 2026';
+      display: block;
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--muted);
+      letter-spacing: 3px;
+      margin-bottom: 10px;
+    }
+
+    .header h1 {
+      font-family: var(--display);
+      font-size: clamp(1.2rem, 3.5vw, 2.2rem);
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--cyan);
+      text-shadow:
+        0 0 10px var(--cyan-glow),
+        0 0 30px var(--cyan-glow),
+        0 0 60px rgba(0,245,255,0.2);
+      position: relative;
+    }
+
+    .header h1::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 2px; top: 2px;
+      color: var(--magenta);
+      opacity: 0.4;
+      pointer-events: none;
+      filter: blur(1px);
+    }
+
+    .header .sub {
+      margin-top: 8px;
+      font-family: var(--body);
+      font-size: .85rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* ── LANG TABS ── */
+    .lang-tabs {
+      display: flex;
+      gap: 0;
+      justify-content: center;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .lang-tab {
+      flex: 1;
+      padding: 10px 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font-family: var(--display);
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: none;
+      border-right: 1px solid var(--border);
+      transition: all .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .lang-tab:last-child { border-right: none; }
+
+    .lang-tab::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--cyan);
+      transform: scaleX(0);
+      transition: transform .2s;
+    }
+
+    .lang-tab:hover { color: var(--white); background: var(--surface2); }
+    .lang-tab.active { color: var(--cyan); background: var(--surface2); }
+    .lang-tab.active::before { transform: scaleX(1); }
+    .lang-tab.active.java { color: var(--magenta); }
+    .lang-tab.active.java::before { background: var(--magenta); }
+    .lang-tab.active.haskell { color: var(--green); }
+    .lang-tab.active.haskell::before { background: var(--green); }
+
+    /* ── SCENARIO BUTTONS ── */
+    .controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: .72rem;
+      letter-spacing: .5px;
+      cursor: pointer;
+      transition: all .15s;
+      clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);
+      position: relative;
+    }
+
+    .btn:hover, .btn.active {
+      color: var(--cyan);
+      border-color: var(--cyan);
+      background: var(--cyan-dim);
+      box-shadow: 0 0 12px var(--cyan-glow), inset 0 0 12px var(--cyan-dim);
+    }
+
+    .btn.active.java-btn { color: var(--magenta); border-color: var(--magenta); background: var(--mag-dim); box-shadow: 0 0 12px var(--mag-glow), inset 0 0 12px var(--mag-dim); }
+    .btn.active.haskell-btn { color: var(--green); border-color: var(--green); background: var(--grn-dim); box-shadow: 0 0 12px rgba(57,255,20,0.4), inset 0 0 12px var(--grn-dim); }
+
+    .btn-clear {
+      border-color: rgba(255,107,0,0.3);
+      color: var(--orange);
+    }
+    .btn-clear:hover {
+      color: var(--orange);
+      border-color: var(--orange);
+      background: rgba(255,107,0,0.1);
+      box-shadow: 0 0 12px rgba(255,107,0,0.4);
+    }
+
+    /* ── GRID ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ── PANEL ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      min-height: 460px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* corner decorations */
+    .panel::before, .panel::after {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      border-color: var(--cyan);
+      border-style: solid;
+      opacity: 0.5;
+    }
+    .panel::before { top: 4px; left: 4px; border-width: 1px 0 0 1px; }
+    .panel::after  { bottom: 4px; right: 4px; border-width: 0 1px 1px 0; }
+
+    .panel.java-panel { border-color: rgba(255,45,155,0.2); }
+    .panel.java-panel::before, .panel.java-panel::after { border-color: var(--magenta); }
+    .panel.haskell-panel { border-color: rgba(57,255,20,0.2); }
+    .panel.haskell-panel::before, .panel.haskell-panel::after { border-color: var(--green); }
+
+    .panel-label {
+      font-family: var(--display);
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-label .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    .label-c      { color: var(--cyan); }
+    .label-java   { color: var(--magenta); }
+    .label-haskell{ color: var(--green); }
+    .label-stack  { color: var(--yellow); }
+    .label-heap   { color: var(--cyan); }
+    .label-code   { color: var(--magenta); }
+
+    /* ── CODE BLOCK ── */
+    .code-block {
+      flex: 1;
+      background: rgba(0,0,0,.5);
+      border: 1px solid rgba(0,245,255,0.08);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-size: .75rem;
+      line-height: 1.8;
+      white-space: pre;
+      overflow-x: auto;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .code-block.has-code { color: var(--white); }
+    .code-block::-webkit-scrollbar { height: 3px; }
+    .code-block::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+
+    .kw  { color: #bd93f9; }
+    .fn  { color: var(--cyan); }
+    .str { color: var(--magenta); }
+    .num { color: var(--yellow); }
+    .cmt { color: rgba(180,200,255,0.3); }
+    .vr  { color: var(--green); }
+    .tp  { color: var(--orange); }
+
+    /* ── MEMORY CONTAINERS ── */
+    .memory-container {
+      flex: 1;
+      border: 1px solid rgba(0,245,255,0.08);
+      border-radius: var(--radius);
+      padding: 10px;
+      background: rgba(0,0,0,.4);
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .memory-container::-webkit-scrollbar { width: 3px; }
+    .memory-container::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+
+    .empty-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: .7rem;
+      text-align: center;
+      pointer-events: none;
+      letter-spacing: 2px;
+    }
+
+    /* ── STACK FRAME ── */
+    .stack-frame {
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,230,0,0.3);
+      background: linear-gradient(135deg, rgba(255,230,0,0.08), rgba(255,230,0,0.02));
+      animation: glideIn .3s cubic-bezier(.22,.61,.36,1) both;
+      position: relative;
+    }
+    .stack-frame::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: var(--yellow);
+      box-shadow: 0 0 8px var(--yellow);
+    }
+
+    .stack-frame.java-frame {
+      border-color: rgba(255,45,155,0.3);
+      background: linear-gradient(135deg, rgba(255,45,155,0.08), rgba(255,45,155,0.02));
+    }
+    .stack-frame.java-frame::before { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); }
+
+    .stack-frame.haskell-frame {
+      border-color: rgba(57,255,20,0.3);
+      background: linear-gradient(135deg, rgba(57,255,20,0.08), rgba(57,255,20,0.02));
+    }
+    .stack-frame.haskell-frame::before { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+    .frame-name {
+      font-family: var(--display);
+      font-size: .65rem;
+      font-weight: 700;
+      color: var(--yellow);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+    .java-frame .frame-name { color: var(--magenta); }
+    .haskell-frame .frame-name { color: var(--green); }
+
+    /* ── HEAP OBJECT ── */
+    .heap-object {
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0,245,255,0.25);
+      background: linear-gradient(135deg, rgba(0,245,255,0.07), rgba(0,245,255,0.02));
+      animation: glideIn .3s cubic-bezier(.22,.61,.36,1) both;
+      position: relative;
+    }
+    .heap-object::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .heap-object.java-obj { border-color: rgba(255,45,155,0.25); background: linear-gradient(135deg, rgba(255,45,155,0.07), rgba(255,45,155,0.02)); }
+    .heap-object.java-obj::before { background: var(--magenta); box-shadow: 0 0 8px var(--mag-glow); }
+
+    .heap-object.thunk-obj { border-color: rgba(57,255,20,0.25); background: linear-gradient(135deg, rgba(57,255,20,0.07), rgba(57,255,20,0.02)); }
+    .heap-object.thunk-obj::before { background: var(--green); box-shadow: 0 0 8px rgba(57,255,20,0.4); }
+
+    .heap-addr {
+      font-size: .65rem;
+      font-weight: 700;
+      color: var(--cyan);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .java-obj .heap-addr { color: var(--magenta); }
+    .thunk-obj .heap-addr { color: var(--green); }
+
+    .heap-badge {
+      background: rgba(0,245,255,0.12);
+      border: 1px solid rgba(0,245,255,0.25);
+      border-radius: 2px;
+      padding: 1px 5px;
+      font-size: .58rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .java-obj .heap-badge { background: rgba(255,45,155,0.12); border-color: rgba(255,45,155,0.25); }
+    .thunk-obj .heap-badge { background: rgba(57,255,20,0.12); border-color: rgba(57,255,20,0.25); color: var(--green); }
+
+    /* ── VAR ROW ── */
+    .var-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px;
+      margin-top: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.04);
+      font-size: .72rem;
+      font-family: var(--mono);
+      animation: glideIn .2s ease both;
+    }
+    .var-name { color: var(--muted); }
+    .var-sep  { color: var(--muted); opacity: .4; }
+    .var-val  { font-weight: 600; }
+    .v-ptr    { color: var(--yellow); text-shadow: 0 0 6px rgba(255,230,0,0.5); }
+    .v-prim   { color: var(--green);  text-shadow: 0 0 6px rgba(57,255,20,0.4); }
+    .v-ref    { color: var(--cyan);   text-shadow: 0 0 6px var(--cyan-glow); }
+    .v-gc     { color: var(--orange); }
+    .v-thunk  { color: var(--green);  font-style: italic; }
+
+    .modified {
+      background: rgba(255,230,0,0.1);
+      border: 1px solid rgba(255,230,0,0.3);
+      box-shadow: 0 0 8px rgba(255,230,0,0.2);
+    }
+
+    .freed {
+      background: rgba(255,107,0,0.08);
+      border: 1px solid rgba(255,107,0,0.3);
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+
+    /* ── GC BADGE ── */
+    .gc-badge {
+      display: inline-block;
+      background: rgba(255,107,0,0.15);
+      border: 1px solid rgba(255,107,0,0.4);
+      color: var(--orange);
+      font-size: .6rem;
+      padding: 2px 6px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      animation: pulse 1s ease-in-out 3;
+    }
+
+    /* ── THUNK INDICATOR ── */
+    .thunk-indicator {
+      font-size: .65rem;
+      color: var(--green);
+      font-style: italic;
+      padding: 3px 6px;
+      background: rgba(57,255,20,0.06);
+      border-left: 2px solid var(--green);
+      margin-top: 4px;
+    }
+
+    /* ── EXPLANATION ── */
+    .explanation-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--cyan);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      font-family: var(--body);
+      font-size: .9rem;
+      line-height: 1.7;
+      color: var(--white);
+      position: relative;
+    }
+    .explanation-panel.java-exp { border-left-color: var(--magenta); }
+    .explanation-panel.haskell-exp { border-left-color: var(--green); }
+
+    .explanation-panel::before {
+      content: '// ANÁLISIS DEL SISTEMA';
+      display: block;
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--muted);
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    .explanation-panel strong { color: var(--yellow); font-family: var(--mono); }
+    .explanation-panel code {
+      background: rgba(0,245,255,0.08);
+      border: 1px solid rgba(0,245,255,0.15);
+      border-radius: 2px;
+      padding: 1px 5px;
+      font-family: var(--mono);
+      font-size: .78em;
+      color: var(--cyan);
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .chip {
+      padding: 3px 10px;
+      font-family: var(--mono);
+      font-size: .65rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border: 1px solid;
+      clip-path: polygon(4px 0%, 100% 0%, calc(100% - 4px) 100%, 0% 100%);
+    }
+    .chip.c-chip     { border-color: var(--yellow); color: var(--yellow); background: var(--yel-dim); }
+    .chip.java-chip  { border-color: var(--magenta); color: var(--magenta); background: var(--mag-dim); }
+    .chip.haskell-chip { border-color: var(--green); color: var(--green); background: var(--grn-dim); }
+    .chip.neutral    { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes glideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to   { opacity: 0; transform: scale(.95); }
+    }
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.3; }
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.5; }
+    }
+    @keyframes flicker {
+      0%,100% { opacity: 1; }
+      92%     { opacity: 1; }
+      93%     { opacity: 0.4; }
+      94%     { opacity: 1; }
+      96%     { opacity: 0.6; }
+      97%     { opacity: 1; }
+    }
+
+    .removing { animation: fadeOut .35s ease forwards; }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      font-size: .62rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+      font-family: var(--mono);
+    }
+    .status-bar .status-ok { color: var(--green); }
+    .status-bar .status-lang { color: var(--cyan); font-weight: bold; }
+
+    /* ── LANG HEADER in panels ── */
+    .lang-header {
+      font-family: var(--display);
+      font-size: .55rem;
+      letter-spacing: 3px;
+      opacity: 0.5;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div style="max-width:1280px;margin:0 auto;">
+
+  <!-- HEADER -->
+  <header class="header">
+    <h1 data-text="MEM://VISUALIZER — STACK &amp; HEAP">MEM://VISUALIZER — STACK &amp; HEAP</h1>
+    <p class="sub">Actividad 9 · Paradigmas y Lenguajes · Unidad III</p>
+  </header>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span>SYS:<span class="status-ok"> ONLINE</span></span>
+    <span>LANG:<span class="status-lang" id="statusLang"> C_IMPERATIVO</span></span>
+    <span>MEM_MODEL:<span id="statusModel" class="status-ok"> MANUAL</span></span>
+    <span>GC:<span id="statusGC"> DISABLED</span></span>
+  </div>
+
+  <!-- LANG TABS -->
+  <div class="lang-tabs">
+    <button class="lang-tab active" onclick="switchLang('c')">C · Imperativo</button>
+    <button class="lang-tab java" onclick="switchLang('java')">Java · OOP</button>
+    <button class="lang-tab haskell" onclick="switchLang('haskell')">Haskell · Funcional</button>
+  </div>
+
+  <!-- SCENARIO BUTTONS -->
+  <div class="controls" id="controls"></div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+    <div class="panel" id="codePanel">
+      <div class="panel-label label-code"><span class="dot"></span> <span id="codeLang">C</span> · SOURCE</div>
+      <div class="code-block" id="codeBlock">// Selecciona un escenario...</div>
+    </div>
+    <div class="panel" id="stackPanel">
+      <div class="panel-label label-stack"><span class="dot"></span> STACK · PILA</div>
+      <div class="memory-container" id="stack">
+        <div class="empty-hint">[ STACK VACÍO ]</div>
+      </div>
+    </div>
+    <div class="panel" id="heapPanel">
+      <div class="panel-label label-heap"><span class="dot"></span> HEAP · MONTÍCULO</div>
+      <div class="memory-container" id="heap">
+        <div class="empty-hint">[ HEAP VACÍO ]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPLANATION -->
+  <div class="explanation-panel" id="explanation">
+    <strong>SISTEMA LISTO</strong><br>
+    Selecciona un lenguaje y un escenario para visualizar cómo se comporta la memoria en tiempo de ejecución.<br>
+    Compará los modelos de <strong>C (imperativo)</strong>, <strong>Java (OOP)</strong> y <strong>Haskell (funcional)</strong>.
+  </div>
+
+</div>
+
+<script>
+  /* ── DOM ── */
+  const stackEl  = document.getElementById('stack');
+  const heapEl   = document.getElementById('heap');
+  const codeEl   = document.getElementById('codeBlock');
+  const expEl    = document.getElementById('explanation');
+  const ctrlEl   = document.getElementById('controls');
+
+  let currentLang = 'c';
+
+  /* ── UTILS ── */
+  const after = (ms, fn) => setTimeout(fn, ms);
+
+  function removeHint(el) {
+    const h = el.querySelector('.empty-hint');
+    if (h) h.remove();
+  }
+
+  function clearMemory() {
+    stackEl.innerHTML = '<div class="empty-hint">[ STACK VACÍO ]</div>';
+    heapEl.innerHTML  = '<div class="empty-hint">[ HEAP VACÍO ]</div>';
+    codeEl.textContent = '// Selecciona un escenario...';
+    codeEl.classList.remove('has-code');
+    document.querySelectorAll('.btn[data-s]').forEach(b => b.classList.remove('active'));
+    expEl.className = 'explanation-panel';
+    expEl.innerHTML = `<strong>SISTEMA LISTO</strong><br>Selecciona un escenario para visualizar la memoria.`;
+  }
+
+  function addStackFrame(title, vars, cls='') {
+    removeHint(stackEl);
+    const f = document.createElement('div');
+    f.className = `stack-frame ${cls}`;
+    f.innerHTML = `<div class="frame-name">▶ ${title}</div>`;
+    vars.forEach(({name, value, type}) => {
+      const r = document.createElement('div');
+      r.className = 'var-row';
+      r.innerHTML = `<span class="var-name">${name}</span><span class="var-sep">=</span><span class="var-val ${type}">${value}</span>`;
+      f.appendChild(r);
+    });
+    stackEl.appendChild(f);
+    return f;
+  }
+
+  function addHeapObj(addr, type, rows, cls='') {
+    removeHint(heapEl);
+    const o = document.createElement('div');
+    o.id = `ho-${addr.replace(/[^a-z0-9]/gi,'')}`;
+    o.className = `heap-object ${cls}`;
+    o.innerHTML = `<div class="heap-addr">${addr}<span class="heap-badge">${type}</span></div>`;
+    rows.forEach(({label,value,cls2=''}) => {
+      const r = document.createElement('div');
+      r.className = `var-row ${cls2}`;
+      r.innerHTML = `<span class="var-name">${label}</span><span class="var-sep">:</span><span class="var-val v-ref">${value}</span>`;
+      o.appendChild(r);
+    });
+    heapEl.appendChild(o);
+    return o;
+  }
+
+  function addThunk(addr, expr) {
+    removeHint(heapEl);
+    const o = document.createElement('div');
+    o.id = `ho-${addr.replace(/[^a-z0-9]/gi,'')}`;
+    o.className = 'heap-object thunk-obj';
+    o.innerHTML = `
+      <div class="heap-addr">${addr}<span class="heap-badge">THUNK</span></div>
+      <div class="thunk-indicator">⏸ pendiente: ${expr}</div>
+    `;
+    heapEl.appendChild(o);
+    return o;
+  }
+
+  /* ── STATUS BAR ── */
+  function setStatus(lang, model, gc) {
+    document.getElementById('statusLang').textContent = ' ' + lang;
+    document.getElementById('statusModel').textContent = ' ' + model;
+    const gcEl = document.getElementById('statusGC');
+    gcEl.textContent = ' ' + gc;
+    gcEl.style.color = gc === 'ACTIVE' ? 'var(--green)' : gc === 'MANUAL' ? 'var(--orange)' : 'var(--muted)';
+  }
+
+  /* ── LANG SWITCH ── */
+  const langScenarios = {
+    c: [
+      { label: '1 · Por Valor',      fn: c_byValue,     cls: '' },
+      { label: '2 · Malloc/Free',    fn: c_malloc,      cls: '' },
+      { label: '3 · Por Referencia', fn: c_byRef,       cls: '' },
+    ],
+    java: [
+      { label: '1 · Primitivos JVM', fn: java_prim,     cls: 'java-btn' },
+      { label: '2 · Objetos + GC',   fn: java_objects,  cls: 'java-btn' },
+      { label: '3 · Aliasing',       fn: java_alias,    cls: 'java-btn' },
+    ],
+    haskell: [
+      { label: '1 · Inmutabilidad',  fn: haskell_immut, cls: 'haskell-btn' },
+      { label: '2 · Thunks Lazy',    fn: haskell_lazy,  cls: 'haskell-btn' },
+      { label: '3 · Lista Infinita', fn: haskell_inf,   cls: 'haskell-btn' },
+    ],
+  };
+
+  function switchLang(lang) {
+    currentLang = lang;
+    clearMemory();
+
+    document.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.lang-tab.${lang === 'c' ? 'active' : lang === 'java' ? 'java' : 'haskell'}`);
+    document.querySelectorAll('.lang-tab')[lang==='c'?0:lang==='java'?1:2].classList.add('active');
+
+    // panels accent
+    document.getElementById('codePanel').className  = `panel ${lang!=='c'?lang+'-panel':''}`;
+    document.getElementById('stackPanel').className = `panel ${lang!=='c'?lang+'-panel':''}`;
+    document.getElementById('heapPanel').className  = `panel ${lang!=='c'?lang+'-panel':''}`;
+    document.getElementById('codeLang').textContent = lang.toUpperCase();
+
+    const statusMap = {
+      c:       ['C_IMPERATIVO',    'MANUAL',   'DISABLED'],
+      java:    ['JAVA_OOP',        'JVM_AUTO', 'ACTIVE'],
+      haskell: ['HASKELL_FUNC',    'LAZY_HEAP', 'GHC_GC'],
+    };
+    setStatus(...statusMap[lang]);
+
+    // rebuild buttons
+    ctrlEl.innerHTML = '';
+    langScenarios[lang].forEach((s, i) => {
+      const b = document.createElement('button');
+      b.className = `btn ${s.cls}`;
+      b.dataset.s = i;
+      b.textContent = s.label;
+      b.onclick = () => { clearMemory(); b.classList.add('active'); s.fn(); };
+      ctrlEl.appendChild(b);
+    });
+    const clr = document.createElement('button');
+    clr.className = 'btn btn-clear';
+    clr.textContent = '✕ RESET';
+    clr.onclick = clearMemory;
+    ctrlEl.appendChild(clr);
+  }
+
+  /* ════════════════════════════════════════
+     C — ESCENARIOS
+  ════════════════════════════════════════ */
+
+  function c_byValue() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">// PASO POR VALOR — C</span>
+<span class="kw">void</span> <span class="fn">modificar</span>(<span class="tp">int</span> <span class="vr">x</span>) {
+    <span class="vr">x</span> = <span class="num">10</span>; <span class="cmt">// copia local</span>
+}
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="tp">int</span> <span class="vr">a</span> = <span class="num">5</span>;
+    <span class="fn">modificar</span>(<span class="vr">a</span>);
+    <span class="cmt">// 'a' sigue siendo 5</span>
+    <span class="kw">return</span> <span class="num">0</span>;
+}`;
+
+    after(400, () => {
+      addStackFrame('main()', [{name:'a', value:'5', type:'v-prim'}]);
+    });
+    after(1000, () => {
+      addStackFrame('modificar(x)', [{name:'x ← COPIA', value:'5 → 10', type:'v-prim'}]);
+    });
+    after(2200, () => {
+      const frames = stackEl.querySelectorAll('.stack-frame');
+      const top = frames[frames.length-1];
+      top.classList.add('removing');
+      after(380, () => {
+        top.remove();
+        const mainF = stackEl.querySelector('.stack-frame');
+        const note = document.createElement('div');
+        note.className = 'var-row';
+        note.innerHTML = `<span class="var-name">a</span><span class="var-sep">=</span><span class="var-val v-prim">5 ✓ sin cambio</span>`;
+        mainF.appendChild(note);
+      });
+    });
+
+    expEl.className = 'explanation-panel';
+    expEl.innerHTML = `
+      <strong>C · PASO POR VALOR</strong><br>
+      Se copia el valor de <code>a</code> en el parámetro <code>x</code>. Son dos posiciones distintas en el stack. Modificar <code>x</code> no afecta <code>a</code>.
+      El frame de <code>modificar()</code> se destruye al retornar (LIFO). La memoria se libera automáticamente por el compilador.
+      <div class="chips">
+        <span class="chip c-chip">Stack Copy</span>
+        <span class="chip c-chip">LIFO</span>
+        <span class="chip neutral">Sin efectos colaterales</span>
+      </div>`;
+  }
+
+  function c_malloc() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">// GESTIÓN MANUAL DE HEAP — C</span>
+<span class="tp">int</span>* <span class="vr">ptr</span> = (<span class="tp">int</span>*) <span class="fn">malloc</span>(<span class="kw">sizeof</span>(<span class="tp">int</span>));
+*<span class="vr">ptr</span> = <span class="num">42</span>;
+<span class="fn">printf</span>(<span class="str">"%d"</span>, *<span class="vr">ptr</span>);
+<span class="fn">free</span>(<span class="vr">ptr</span>); <span class="cmt">// OBLIGATORIO</span>
+<span class="vr">ptr</span> = <span class="kw">NULL</span>;  <span class="cmt">// buena práctica</span>`;
+
+    after(400, () => {
+      addStackFrame('main()', [{name:'ptr', value:'→ 0xA100', type:'v-ptr'}]);
+    });
+    after(900, () => {
+      addHeapObj('0xA100', 'int*', [{label:'valor', value:'42'}]);
+    });
+    after(2000, () => {
+      const obj = document.getElementById('ho-0xA100');
+      if (obj) {
+        obj.classList.add('freed');
+        const badge = document.createElement('div');
+        badge.className = 'var-row';
+        badge.innerHTML = `<span class="gc-badge">⚠ free() — MEMORIA LIBERADA</span>`;
+        obj.appendChild(badge);
+      }
+      const mainF = stackEl.querySelector('.stack-frame');
+      if (mainF) {
+        const row = document.createElement('div');
+        row.className = 'var-row';
+        row.innerHTML = `<span class="var-name">ptr</span><span class="var-sep">=</span><span class="var-val v-gc">NULL</span>`;
+        mainF.appendChild(row);
+      }
+    });
+
+    expEl.className = 'explanation-panel';
+    expEl.innerHTML = `
+      <strong>C · HEAP MANUAL (malloc/free)</strong><br>
+      En C la memoria del heap se gestiona manualmente. <code>malloc()</code> reserva espacio; <code>free()</code> lo libera.
+      Si no se llama a <code>free()</code>, ocurre una <strong>fuga de memoria</strong> (memory leak). No hay Garbage Collector.
+      <div class="chips">
+        <span class="chip c-chip">malloc / free</span>
+        <span class="chip c-chip">Sin GC</span>
+        <span class="chip neutral">Puntero en Stack</span>
+      </div>`;
+  }
+
+  function c_byRef() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">// SIMULACIÓN POR REFERENCIA — C (punteros)</span>
+<span class="kw">void</span> <span class="fn">modificar</span>(<span class="tp">int</span>* <span class="vr">x</span>) {
+    *<span class="vr">x</span> = <span class="num">10</span>; <span class="cmt">// modifica el original</span>
+}
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="tp">int</span> <span class="vr">a</span> = <span class="num">5</span>;
+    <span class="fn">modificar</span>(&<span class="vr">a</span>); <span class="cmt">// pasa dirección</span>
+    <span class="cmt">// 'a' ahora es 10</span>
+}`;
+
+    after(400, () => {
+      addStackFrame('main()', [{name:'a', value:'5', type:'v-prim'}]);
+    });
+    after(900, () => {
+      addStackFrame('modificar(x)', [{name:'x (ptr)', value:'→ &a', type:'v-ptr'}]);
+    });
+    after(1800, () => {
+      const mainF = stackEl.querySelectorAll('.stack-frame')[0];
+      const rows = mainF.querySelectorAll('.var-row');
+      if (rows[0]) {
+        rows[0].querySelector('.var-val').textContent = '10 ← MODIFICADO';
+        rows[0].classList.add('modified');
+      }
+    });
+
+    expEl.className = 'explanation-panel';
+    expEl.innerHTML = `
+      <strong>C · PASO POR PUNTERO (referencia simulada)</strong><br>
+      Se pasa la <strong>dirección de memoria</strong> de <code>a</code>. La función puede modificar el valor original.
+      Requiere gestión cuidadosa: aliasing, punteros inválidos y segfaults son riesgos reales.
+      <div class="chips">
+        <span class="chip c-chip">Puntero</span>
+        <span class="chip c-chip">Aliasing</span>
+        <span class="chip neutral">Efecto colateral</span>
+      </div>`;
+  }
+
+  /* ════════════════════════════════════════
+     JAVA — ESCENARIOS
+  ════════════════════════════════════════ */
+
+  function java_prim() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">// PRIMITIVOS EN JVM — Java</span>
+<span class="kw">public static void</span> <span class="fn">main</span>(String[] args) {
+    <span class="tp">int</span>     <span class="vr">edad</span>   = <span class="num">25</span>;
+    <span class="tp">double</span>  <span class="vr">salario</span>= <span class="num">1500.0</span>;
+    <span class="tp">boolean</span> <span class="vr">activo</span> = <span class="kw">true</span>;
+    <span class="cmt">// primitivos → stack directo</span>
+}`;
+
+    after(400, () => {
+      addStackFrame('main() [JVM Frame]',
+        [{name:'edad',   value:'25',     type:'v-prim'},
+         {name:'salario',value:'1500.0', type:'v-prim'},
+         {name:'activo', value:'true',   type:'v-prim'}],
+        'java-frame');
+    });
+
+    expEl.className = 'explanation-panel java-exp';
+    expEl.innerHTML = `
+      <strong>JAVA · PRIMITIVOS EN STACK (JVM)</strong><br>
+      Los tipos primitivos (<code>int</code>, <code>double</code>, <code>boolean</code>) se almacenan directamente en el stack de la JVM.
+      No son objetos, no van al heap y no son gestionados por el GC. Son idénticos al comportamiento de C en este aspecto.
+      <div class="chips">
+        <span class="chip java-chip">JVM Stack</span>
+        <span class="chip java-chip">Sin GC</span>
+        <span class="chip neutral">Igual que C</span>
+      </div>`;
+  }
+
+  function java_objects() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">// OBJETOS + GARBAGE COLLECTOR — Java</span>
+<span class="kw">public static void</span> <span class="fn">main</span>(String[] args) {
+    <span class="tp">String</span> <span class="vr">s</span> = <span class="kw">new</span> <span class="fn">String</span>(<span class="str">"Hola"</span>);
+    <span class="vr">s</span> = <span class="kw">null</span>; <span class="cmt">// objeto sin referencia</span>
+    <span class="cmt">// GC lo recolecta eventualmente</span>
+}`;
+
+    after(400, () => {
+      addStackFrame('main() [JVM]',
+        [{name:'s', value:'→ 0xB200', type:'v-ptr'}],
+        'java-frame');
+    });
+    after(900, () => {
+      addHeapObj('0xB200', 'String', [{label:'value', value:'"Hola"'}], 'java-obj');
+    });
+    after(2200, () => {
+      const mainF = stackEl.querySelector('.stack-frame');
+      const row = mainF?.querySelectorAll('.var-row')[0];
+      if (row) { row.querySelector('.var-val').textContent = 'null'; row.classList.add('modified'); }
+    });
+    after(3200, () => {
+      const obj = document.getElementById('ho-0xB200');
+      if (obj) {
+        obj.classList.add('freed');
+        const b = document.createElement('div');
+        b.className = 'var-row';
+        b.innerHTML = `<span class="gc-badge">♻ GC — RECOLECTADO</span>`;
+        obj.appendChild(b);
+      }
+    });
+
+    expEl.className = 'explanation-panel java-exp';
+    expEl.innerHTML = `
+      <strong>JAVA · OBJETOS Y GARBAGE COLLECTOR</strong><br>
+      Los objetos se crean en el heap con <code>new</code>. El stack guarda la referencia.
+      Cuando <code>s = null</code>, el objeto queda sin referencias y el <strong>GC</strong> lo recolecta automáticamente.
+      No hay <code>free()</code> manual, pero hay pausas de GC.
+      <div class="chips">
+        <span class="chip java-chip">Heap automático</span>
+        <span class="chip java-chip">GC activo</span>
+        <span class="chip neutral">Sin free() manual</span>
+      </div>`;
+  }
+
+  function java_alias() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">// ALIASING — Java</span>
+<span class="tp">int</span>[] <span class="vr">arr1</span> = {<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>};
+<span class="tp">int</span>[] <span class="vr">arr2</span> = <span class="vr">arr1</span>; <span class="cmt">// misma ref</span>
+<span class="vr">arr1</span>[<span class="num">0</span>] = <span class="num">99</span>;
+<span class="cmt">// arr2[0] también es 99!</span>`;
+
+    after(400, () => {
+      addStackFrame('main() [JVM]',
+        [{name:'arr1', value:'→ 0xC300', type:'v-ptr'},
+         {name:'arr2', value:'→ 0xC300', type:'v-ptr'}],
+        'java-frame');
+    });
+    after(900, () => {
+      addHeapObj('0xC300', 'int[]',
+        [{label:'[0]', value:'1'},
+         {label:'[1]', value:'2'},
+         {label:'[2]', value:'3'}],
+        'java-obj');
+    });
+    after(2000, () => {
+      const obj = document.getElementById('ho-0xC300');
+      const rows = obj?.querySelectorAll('.var-row');
+      if (rows?.[0]) {
+        rows[0].querySelector('.var-val').textContent = '99';
+        rows[0].classList.add('modified');
+        const note = document.createElement('div');
+        note.className = 'var-row modified';
+        note.innerHTML = `<span style="color:var(--yellow);font-size:.65rem">⚡ arr1 Y arr2 ven el cambio</span>`;
+        obj.appendChild(note);
+      }
+    });
+
+    expEl.className = 'explanation-panel java-exp';
+    expEl.innerHTML = `
+      <strong>JAVA · ALIASING DE REFERENCIAS</strong><br>
+      <code>arr2 = arr1</code> copia la <strong>referencia</strong>, no el arreglo. Ambas variables apuntan al mismo objeto en heap.
+      Modificar <code>arr1[0]</code> afecta también <code>arr2[0]</code>. Esto es aliasing y puede causar bugs difíciles de detectar.
+      <div class="chips">
+        <span class="chip java-chip">Aliasing</span>
+        <span class="chip java-chip">Ref compartida</span>
+        <span class="chip neutral">Mismo heap-obj</span>
+      </div>`;
+  }
+
+  /* ════════════════════════════════════════
+     HASKELL — ESCENARIOS
+  ════════════════════════════════════════ */
+
+  function haskell_immut() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">-- INMUTABILIDAD — Haskell</span>
+<span class="kw">let</span> <span class="vr">x</span> = <span class="num">5</span>
+<span class="kw">let</span> <span class="vr">y</span> = <span class="vr">x</span> + <span class="num">1</span>
+<span class="cmt">-- x NO cambia → y es una nueva</span>
+<span class="cmt">-- estructura en el heap</span>
+<span class="kw">let</span> <span class="vr">lista1</span> = [<span class="num">1</span>,<span class="num">2</span>,<span class="num">3</span>]
+<span class="kw">let</span> <span class="vr">lista2</span> = <span class="num">0</span> : <span class="vr">lista1</span>
+<span class="cmt">-- lista2 = [0,1,2,3], lista1 intacta</span>`;
+
+    after(400, () => {
+      addStackFrame('GHC Runtime',
+        [{name:'x', value:'→ 0xD100', type:'v-ptr'},
+         {name:'y', value:'→ 0xD200', type:'v-ptr'},
+         {name:'lista1', value:'→ 0xD300', type:'v-ptr'},
+         {name:'lista2', value:'→ 0xD400', type:'v-ptr'}],
+        'haskell-frame');
+    });
+    after(900, () => {
+      addHeapObj('0xD100', 'Int', [{label:'val', value:'5'}], 'thunk-obj');
+      addHeapObj('0xD200', 'Int', [{label:'val', value:'6 (nueva)'}], 'thunk-obj');
+    });
+    after(1400, () => {
+      addHeapObj('0xD300', 'List', [{label:'[0]','value':'1'},{label:'[1]','value':'2'},{label:'[2]','value':'3'}], 'thunk-obj');
+      addHeapObj('0xD400', 'List', [{label:'[0]','value':'0 (nuevo)'},{label:'[1]→','value':'0xD300 (compartido)'}], 'thunk-obj');
+    });
+
+    expEl.className = 'explanation-panel haskell-exp';
+    expEl.innerHTML = `
+      <strong>HASKELL · INMUTABILIDAD</strong><br>
+      En Haskell ningún valor se modifica. <code>y = x + 1</code> crea un <strong>nuevo nodo</strong> en el heap; <code>x</code> permanece intacto.
+      <code>lista2</code> comparte la estructura de <code>lista1</code> (estructura persistente), ahorrando memoria.
+      <div class="chips">
+        <span class="chip haskell-chip">Inmutable</span>
+        <span class="chip haskell-chip">Nuevas structs</span>
+        <span class="chip neutral">Sharing</span>
+      </div>`;
+  }
+
+  function haskell_lazy() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">-- EVALUACIÓN PEREZOSA (THUNKS) — Haskell</span>
+<span class="kw">let</span> <span class="vr">a</span> = <span class="fn">costosoCalculo</span> <span class="num">1000</span>
+<span class="cmt">-- 'a' es un THUNK: no se evalúa aún</span>
+
+<span class="kw">let</span> <span class="vr">b</span> = <span class="vr">a</span> * <span class="num">2</span>
+<span class="cmt">-- 'b' también es thunk</span>
+
+<span class="fn">print</span> <span class="vr">b</span>
+<span class="cmt">-- AHORA se fuerza la evaluación</span>`;
+
+    after(300, () => {
+      addStackFrame('GHC Eval',
+        [{name:'a', value:'→ THUNK', type:'v-thunk'},
+         {name:'b', value:'→ THUNK', type:'v-thunk'}],
+        'haskell-frame');
+    });
+    after(800, () => {
+      addThunk('0xE100', 'costosoCalculo 1000');
+      addThunk('0xE200', 'a * 2');
+    });
+    after(2400, () => {
+      // forzar evaluación
+      const t1 = document.getElementById('ho-0xE100');
+      const t2 = document.getElementById('ho-0xE200');
+      if (t1) {
+        t1.querySelector('.thunk-indicator').textContent = '✓ evaluado: 42000';
+        t1.querySelector('.thunk-indicator').style.color = 'var(--cyan)';
+      }
+      if (t2) {
+        t2.querySelector('.thunk-indicator').textContent = '✓ evaluado: 84000';
+        t2.querySelector('.thunk-indicator').style.color = 'var(--cyan)';
+      }
+      const mainF = stackEl.querySelector('.stack-frame');
+      const rows = mainF?.querySelectorAll('.var-row');
+      if (rows?.[0]) { rows[0].querySelector('.var-val').textContent = '42000'; rows[0].classList.add('modified'); }
+      if (rows?.[1]) { rows[1].querySelector('.var-val').textContent = '84000'; rows[1].classList.add('modified'); }
+    });
+
+    expEl.className = 'explanation-panel haskell-exp';
+    expEl.innerHTML = `
+      <strong>HASKELL · THUNKS Y EVALUACIÓN PEREZOSA</strong><br>
+      Las expresiones se representan como <strong>thunks</strong> (cálculos pendientes) en el heap.
+      Solo se evalúan cuando su valor es necesario (al hacer <code>print</code>).
+      Esto permite eficiencia en estructuras costosas, pero puede acumular thunks si no se controla (<em>space leaks</em>).
+      <div class="chips">
+        <span class="chip haskell-chip">Lazy eval</span>
+        <span class="chip haskell-chip">Thunks heap</span>
+        <span class="chip neutral">On-demand</span>
+      </div>`;
+  }
+
+  function haskell_inf() {
+    codeEl.classList.add('has-code');
+    codeEl.innerHTML =
+`<span class="cmt">-- LISTA INFINITA — Haskell (lazy)</span>
+<span class="vr">infinita</span> = [<span class="num">1</span>..]
+<span class="cmt">-- No se genera en memoria completa</span>
+
+<span class="vr">primeros10</span> = <span class="fn">take</span> <span class="num">10</span> <span class="vr">infinita</span>
+<span class="cmt">-- Solo genera 10 elementos</span>
+
+<span class="vr">pares</span> = <span class="fn">filter</span> <span class="fn">even</span> [<span class="num">1</span>..]
+<span class="cmt">-- Lista infinita de pares</span>
+<span class="fn">take</span> <span class="num">5</span> <span class="vr">pares</span> <span class="cmt">-- [2,4,6,8,10]</span>`;
+
+    after(300, () => {
+      addStackFrame('GHC Runtime',
+        [{name:'infinita',   value:'→ THUNK [1..]', type:'v-thunk'},
+         {name:'primeros10', value:'→ THUNK take 10', type:'v-thunk'},
+         {name:'pares',      value:'→ THUNK filter', type:'v-thunk'}],
+        'haskell-frame');
+    });
+    after(900, () => {
+      addThunk('0xF100', '[1..] — generador infinito');
+      addThunk('0xF200', 'take 10 [1..]');
+      addThunk('0xF300', 'filter even [1..]');
+    });
+    after(2200, () => {
+      const t2 = document.getElementById('ho-0xF200');
+      if (t2) {
+        t2.querySelector('.thunk-indicator').textContent = '✓ [1,2,3,4,5,6,7,8,9,10]';
+        t2.querySelector('.thunk-indicator').style.color = 'var(--cyan)';
+      }
+      const t3 = document.getElementById('ho-0xF300');
+      if (t3) {
+        t3.querySelector('.thunk-indicator').textContent = '✓ [2,4,6,8,10,...] (parcial)';
+        t3.querySelector('.thunk-indicator').style.color = 'var(--cyan)';
+      }
+    });
+
+    expEl.className = 'explanation-panel haskell-exp';
+    expEl.innerHTML = `
+      <strong>HASKELL · LISTAS INFINITAS</strong><br>
+      Gracias a la evaluación perezosa, <code>[1..]</code> es un generador, no una lista en memoria.
+      <code>take 10</code> fuerza la generación de solo 10 elementos. Esto es imposible en C o Java con evaluación estricta.
+      Demuestra el poder del modelo funcional: estructuras conceptualmente infinitas con consumo finito de memoria.
+      <div class="chips">
+        <span class="chip haskell-chip">Infinito posible</span>
+        <span class="chip haskell-chip">Lazy gen</span>
+        <span class="chip neutral">Solo lo necesario</span>
+      </div>`;
+  }
+
+  /* ── INIT ── */
+  switchLang('c');
+  after(500, () => {
+    const first = ctrlEl.querySelector('.btn[data-s]');
+    if (first) first.click();
+  });
+</script>
+</body>
+</html>
